@@ -2034,8 +2034,8 @@ const Payments: React.FC = () => {
   const paymentStats = [
     {
       name: 'Total Payments',
-      value: '$1,245.50',
-      change: '+8.5%',
+      value: '$0.00',
+      change: '0%',
       isIncrease: true,
       icon: BanknotesIcon,
       bgColor: 'bg-blue-100 dark:bg-blue-900/30',
@@ -2044,8 +2044,8 @@ const Payments: React.FC = () => {
     },
     {
       name: 'Pending',
-      value: '$75.50',
-      change: '-2.3%',
+      value: '$0.00',
+      change: '0%',
       isIncrease: false,
       icon: ClockIcon,
       bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
@@ -2054,8 +2054,8 @@ const Payments: React.FC = () => {
     },
     {
       name: 'Successful',
-      value: '$1,125.00',
-      change: '+10.2%',
+      value: '$0.00',
+      change: '0%',
       isIncrease: true,
       icon: CheckCircleIcon,
       bgColor: 'bg-green-100 dark:bg-green-900/30',
@@ -2064,8 +2064,8 @@ const Payments: React.FC = () => {
     },
     {
       name: 'Failed',
-      value: '$45.99',
-      change: '-15.0%',
+      value: '$0.00',
+      change: '0%',
       isIncrease: false,
       icon: XCircleIcon,
       bgColor: 'bg-red-100 dark:bg-red-900/30',
