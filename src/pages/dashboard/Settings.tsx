@@ -4,12 +4,19 @@ import { Cog6ToothIcon, BuildingOfficeIcon, ShieldCheckIcon, CommandLineIcon, Lo
 import InputField from '../../components/form/InputField';
 import SelectField from '../../components/form/SelectField';
 import TextAreaField from '../../components/form/TextAreaField';
+import axios from 'axios';
+import { URL } from '../../url'
+import { useAuth } from '../../context/AuthContext';
 
-// Common form input class for consistency
+
 
 // Tab content components
 const BusinessInformation: React.FC = () => {
+
+  const { token, merchant, updateMerchant } = useAuth();
+
   const [formData, setFormData] = useState({
+
     businessName: '',
     businessType: '',
     website: '',
@@ -18,10 +25,98 @@ const BusinessInformation: React.FC = () => {
     address: '',
     city: '',
     state: '',
-    zipCode: '',
+    postal: '',
     phoneNumber: '',
     email: '',
   });
+
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+
+  // Load existing merchant data on component mount
+  useEffect(() => {
+    // Initialize form data from the merchant context
+    if (merchant) {
+      setFormData(prevData => ({
+        ...prevData,
+        businessName: merchant.businessName || '',
+        email: merchant.email || '',
+        // businessType: merchant.businessType || '',
+        // industry: merchant.industry || '',
+        // state: merchant.state || '',
+        // country: merchant.country || '',
+        // phoneNumber: merchant.phone || '',
+        // Try to fill in other fields that might come from dashboard API
+      }));
+    }
+
+    // If we need additional data not in the auth context, fetch it
+    const fetchAdditionalMerchantData = async () => {
+      if (!token) {
+        console.error('No token found');
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+
+        // Extract API credentials from merchant context
+        // Extract API credentials with null check
+        const apiKey = merchant?.apiKey;
+        const apiSecret = merchant?.apiSecret;
+
+        if (!apiKey || !apiSecret) {
+          console.error('API credentials not found');
+          setErrorMessage('API credentials not found. Cannot load data.');
+          return;
+        }
+
+        // Make request to the dashboard endpoint to get complete merchant data
+        const response = await axios.get(`${URL}/api/merchants/dashboard`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'x-api-key': apiKey,
+            'x-API-Secret': apiSecret
+
+          }
+        });
+
+        if (response.data && response.data.merchant) {
+          const merchantData = response.data.merchant;
+
+          // Update form with existing data from merchant object
+          setFormData(prevData => ({
+            ...prevData,
+            businessName: merchantData.businessName || '',
+            businessType: merchantData.businessType || '',
+            industry: merchantData.industry || '',
+            state: merchantData.state || '',
+            country: merchantData.country || '',
+            phoneNumber: merchantData.phone || '',
+            email: merchantData.email || '',
+            position: merchantData.position || '',
+            city: merchantData.city || '',
+            website: merchantData.website || '',
+            address: merchantData.address || '',
+            postal: merchantData.postal || '',
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching additional merchant data:', error);
+        setErrorMessage('Failed to load your business information');
+      } finally {
+        setIsLoading(false);
+        setInitialLoad(false);
+      }
+    };
+
+    fetchAdditionalMerchantData();
+  }, [token, merchant]);
+
 
   const [stateOptions, setStateOptions] = useState<{ value: string; label: string }[]>([
     { value: '', label: 'Select a state/province' }
@@ -118,12 +213,12 @@ const BusinessInformation: React.FC = () => {
         { value: '', label: 'Select a state/province' }
       ]);
     }
-    
+
     // Reset state and city when country changes
-    if (formData.state) {
+    if (formData.state && initialLoad === false) {
       setFormData(prev => ({ ...prev, state: '', city: '' }));
     }
-  }, [formData.country]);
+  }, [formData.country, initialLoad]);
 
   // Update city options based on selected state
   useEffect(() => {
@@ -163,9 +258,9 @@ const BusinessInformation: React.FC = () => {
           { value: 'other', label: 'Other' }
         ]);
       }
-      
+
       // Reset city when state changes
-      if (formData.city) {
+      if (formData.city && initialLoad === false) {
         setFormData(prev => ({ ...prev, city: '' }));
       }
     } else {
@@ -173,18 +268,90 @@ const BusinessInformation: React.FC = () => {
         { value: '', label: 'Select a city' }
       ]);
     }
-  }, [formData.state]);
+  }, [formData.state, initialLoad]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    // Clear success/error messages when user makes changes
+    if (successMessage) setSuccessMessage('');
+    if (errorMessage) setErrorMessage('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // In a real app, you would save this data to your state management or API
-    console.log('Business Info:', formData);
+    setIsLoading(true);
+    setSuccessMessage('');
+    setErrorMessage('');
+
+    try {
+
+      if (!token || !merchant) {
+        setErrorMessage('You must be logged in to update your information');
+        setIsLoading(false)
+        return;
+      }
+
+      // Extract API credentials with null check
+      const apiKey = merchant?.apiKey;
+      const apiSecret = merchant?.apiSecret;
+
+      if (!apiKey || !apiSecret) {
+        console.error('API credentials not found');
+        setErrorMessage('API credentials not found. Cannot update profile.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Map the form data to match the API's expected format based on what we saw in updateProfile
+      const dataToSend = {
+
+        businessName: formData.businessName,
+        businessType: formData.businessType,
+        phone: formData.phoneNumber,
+        industry: formData.industry,
+        state: formData.state,
+        country: formData.country,
+        address: formData.address,
+        city: formData.city,
+        postal: formData.postal,
+        website: formData.website,
+      };
+
+      // Call the updateProfile endpoint
+      const response = await axios.put(`${URL}/api/merchants/profile`, dataToSend, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'x-api-key': apiKey,
+          'x-API-Secret': apiSecret
+        }
+      });
+
+      if (response.data && response.data.success) {
+        setSuccessMessage('Business information updated successfully');
+
+
+
+        // Update the merchant data in the auth context if needed
+        updateMerchant({
+          businessName: formData.businessName,
+          // Include other updated fields as needed
+        });
+
+      } else {
+        setErrorMessage('Failed to update business information');
+      }
+    } catch (error) {
+      console.error('Error updating business information:', error);
+      const err = error as any; // Type assertion for the error object
+      setErrorMessage(err.response?.data?.error || 'Failed to update business information');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+
 
   const businessTypeOptions = [
     { value: '', label: 'Select a business type' },
@@ -225,6 +392,19 @@ const BusinessInformation: React.FC = () => {
     <div className="space-y-4 animate-fade-in-up opacity-0">
       <h3 className="text-lg font-medium text-gray-900 dark:text-white">Business Information</h3>
       <div className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow-sm">
+        {/* Success/Error Messages */}
+        {successMessage && (
+          <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+            {successMessage}
+          </div>
+        )}
+        {errorMessage && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {errorMessage}
+          </div>
+        )}
+
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6 animate-fade-in-up animation-delay-100 opacity-0">
             <div className="sm:col-span-3">
@@ -315,12 +495,12 @@ const BusinessInformation: React.FC = () => {
 
             <div className="sm:col-span-3">
               <InputField
-                id="zipCode"
-                name="zipCode"
+                id="postal"
+                name="postal"
                 type="text"
                 label="ZIP / Postal Code *"
                 required
-                value={formData.zipCode}
+                value={formData.postal}
                 onChange={handleChange}
               />
             </div>
@@ -370,9 +550,18 @@ const BusinessInformation: React.FC = () => {
           <div className="flex justify-end pt-5 animate-fade-in-up animation-delay-200 opacity-0">
             <button
               type="submit"
-              className="btn btn-primary"
+              className={`btn btn-primary flex items-center justify-center ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
+              disabled={isLoading}
             >
-              Save Information
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : 'Save Information'}
             </button>
           </div>
         </form>
@@ -391,7 +580,7 @@ const KYCAMLCompliance: React.FC = () => {
     businessOwnership: '',
     hasAcceptedTerms: false,
   });
-  
+
   const [files, setFiles] = useState({
     businessRegistration: null as File | null,
     proofOfAddress: null as File | null,
@@ -406,7 +595,7 @@ const KYCAMLCompliance: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
-    
+
     if (type === 'checkbox') {
       setFormData(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
     } else {
@@ -427,18 +616,18 @@ const KYCAMLCompliance: React.FC = () => {
       proofOfAddress: !files.proofOfAddress,
       identificationDocument: !files.identificationDocument,
     };
-    
+
     setErrors(newErrors);
     return !Object.values(newErrors).some(error => error);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     // In a real app, you would upload files and save data to your API
     console.log('KYC/AML Info:', formData);
     console.log('Files:', files);
@@ -739,7 +928,7 @@ const APIIntegration: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
-    
+
     if (type === 'checkbox') {
       setFormData(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
     } else {
@@ -1040,17 +1229,17 @@ const SecuritySettings: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
-    
+
     if (type === 'checkbox') {
       setFormData(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
-      
+
       // Clear errors when field is changed
       if (name in errors) {
         setErrors(prev => ({ ...prev, [name]: false }));
       }
-      
+
       // Check password strength
       if (name === 'password') {
         const strength = checkPasswordStrength(value);
@@ -1061,15 +1250,15 @@ const SecuritySettings: React.FC = () => {
 
   const checkPasswordStrength = (password: string): string => {
     if (!password) return '';
-    
+
     const hasLowercase = /[a-z]/.test(password);
     const hasUppercase = /[A-Z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
     const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
     const isLongEnough = password.length >= 8;
-    
+
     const score = [hasLowercase, hasUppercase, hasNumber, hasSpecial, isLongEnough].filter(Boolean).length;
-    
+
     if (score <= 2) return 'weak';
     if (score <= 4) return 'medium';
     return 'strong';
@@ -1090,18 +1279,18 @@ const SecuritySettings: React.FC = () => {
       password: !!formData.password && formData.passwordStrength === 'weak',
       confirmPassword: !!formData.password && formData.password !== formData.confirmPassword,
     };
-    
+
     setErrors(newErrors);
     return !Object.values(newErrors).some(error => error);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     // In a real app, you would save this data to your state management or API
     console.log('Security Settings:', formData);
   };
@@ -1389,8 +1578,8 @@ const Tab: React.FC<TabProps> = ({ icon, title, active, onClick }) => (
   <button
     onClick={onClick}
     className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-md transition-colors duration-150 ease-in-out
-      ${active 
-        ? 'bg-primary text-white' 
+      ${active
+        ? 'bg-primary text-white'
         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700'
       }`}
   >
@@ -1405,23 +1594,23 @@ const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<number>(0);
 
   const tabs = [
-    { 
-      title: 'Business Information', 
+    {
+      title: 'Business Information',
       icon: <BuildingOfficeIcon className="h-5 w-5" />,
       content: <BusinessInformation />
     },
-    { 
-      title: 'KYC/AML Compliance', 
+    {
+      title: 'KYC/AML Compliance',
       icon: <ShieldCheckIcon className="h-5 w-5" />,
       content: <KYCAMLCompliance />
     },
-    { 
-      title: 'API & Integration', 
+    {
+      title: 'API & Integration',
       icon: <CommandLineIcon className="h-5 w-5" />,
       content: <APIIntegration />
     },
-    { 
-      title: 'Security Settings', 
+    {
+      title: 'Security Settings',
       icon: <LockClosedIcon className="h-5 w-5" />,
       content: <SecuritySettings />
     }
@@ -1498,7 +1687,7 @@ const Settings: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-300 mb-6">
             Manage your account settings and preferences.
           </p>
-          
+
           {/* Tabs - Desktop */}
           <div className="hidden md:flex space-x-2 mb-6 animate-fade-in-up animation-delay-100 opacity-0">
             {tabs.map((tab, index) => (
@@ -1511,11 +1700,11 @@ const Settings: React.FC = () => {
               />
             ))}
           </div>
-          
+
           {/* Tabs - Mobile */}
           <div className="md:hidden mb-6 animate-fade-in-up animation-delay-100 opacity-0">
             <label htmlFor="selectedTab" className="sr-only">Select a tab</label>
-            <select 
+            <select
               id="selectedTab"
               className="block w-full py-2 px-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-gray-900 dark:text-white"
               value={activeTab}
@@ -1527,7 +1716,7 @@ const Settings: React.FC = () => {
             </select>
           </div>
         </div>
-        
+
         {/* Tab Content */}
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg animate-fade-in-up animation-delay-200 opacity-0">
           {tabs[activeTab].content}
