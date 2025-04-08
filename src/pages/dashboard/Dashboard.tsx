@@ -1017,6 +1017,12 @@ const Dashboard: React.FC = () => {
     }
   }, [merchant, token]);
 
+
+  console.log('stats',stats)
+  console.log('recent T',recentTransactions)
+  console.log('total T',totalTransactions)
+
+
   // Navigate to next stat in carousel
   const nextStat = () => {
     setCurrentStatIndex((prevIndex) => (prevIndex === stats.length - 1 ? 0 : prevIndex + 1));

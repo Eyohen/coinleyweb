@@ -42,7 +42,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const notificationRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   // const {merchant, logout} = useAuth();
-  const {merchant} = useAuth();
+  const {merchant, logout} = useAuth();
+
+  console.log('merchant stuff', merchant)
 
   // Mock notifications data
   const [notifications, setNotifications] = useState([
@@ -636,7 +638,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                         Settings
                       </Link>
                       <button
-                        onClick={handleLogout}
+                        onClick={() => logout()}
                         className="w-full text-left block px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center animate-fade-in-up animation-delay-200 opacity-0"
                       >
                         <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4 text-red-500 dark:text-red-400" />
